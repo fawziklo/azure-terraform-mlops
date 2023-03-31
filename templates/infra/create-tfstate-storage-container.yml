@@ -1,0 +1,25 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
+
+steps:
+  - task: AzureCLI@2
+    displayName: 'Create tfstate'
+    inputs:
+      azureSubscription: '$(ado_service_connection_rg)'
+      scriptType: pscore
+      scriptLocation: inlineScript  
+      addSpnToEnvironment: true
+      useGlobalConfig: true  
+      inlineScript: |      
+        Write-Host ResourceGroupTerraform : "$(terraform_st_resource_group)"
+        Write-Host StorageAccountTerraform : "$(terraform_st_storage_account)"
+        Write-Host ContainerTerraform : "$(terraform_st_container_name)"
+        az group create --location "$(location)" --name "$(terraform_st_resource_group)"
+        az storage account create --name "$(terraform_st_storage_account)" --resource-group "$(terraform_st_resource_group)" --location "$(location)"
+        az storage container create --name "$(terraform_st_container_name)" --account-name "$(terraform_st_storage_account)"
+        az storage account keys list -g "$(terraform_st_resource_group)" -n "$(terraform_st_storage_account)"
+        $key=az storage account keys list -n "$(terraform_st_storage_account)" -g "$(terraform_st_resource_group)" --query [0].value
+        $env:ARM_ACCESS_KEY=$key
+        Write-Host "##vso[task.setvariable variable=storagekey]$key"
+        Write-Host "##vso[task.setvariable variable=tf_storage_account_key]$key"            

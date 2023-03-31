@@ -1,0 +1,41 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
+variables:
+- ${{ if eq(variables['Build.SourceBranchName'], 'main') }}:
+    # 'main' branch: PRD environment
+    - template: ../../config-infra-prod.yml
+- ${{ if ne(variables['Build.SourceBranchName'], 'main') }}:  
+    # 'develop' or feature branches: DEV environment
+    - template: ../../config-infra-dev.yml
+
+trigger:
+- none
+
+pool:
+  vmImage: ubuntu-20.04
+
+stages :
+  - stage: CreateStorageAccountForTerraformState
+    displayName: Create Storage for Terraform
+    jobs:
+    - job: CreateStorageForTerraform
+      displayName: Create Storage for Terraform
+      steps:
+      - template: ../../templates/infra/create-resource-group.yml
+      - template: ../../templates/infra/create-storage-account.yml
+      - template: ../../templates/infra/create-storage-container.yml
+
+  - stage: DeployAzureMachineLearningRG
+    displayName: Deploy AML Workspace
+    jobs:
+    - job:  DeployAMLWorkspace
+      displayName: Deploy Terraform
+      steps:
+
+      - template: ../../templates/infra/create-sp-variables.yml
+      - template: ../../templates/infra/install-terraform.yml
+      - template: ../../templates/infra/run-terraform-init.yml
+      - template: ../../templates/infra/run-terraform-validate.yml
+      - template: ../../templates/infra/run-terraform-plan.yml
+      - template: ../../templates/infra/run-terraform-apply.yml

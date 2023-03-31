@@ -1,0 +1,53 @@
+# Copyright (c) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+
+variables:
+- ${{ if eq(variables['Build.SourceBranchName'], 'main') }}:
+    # 'main' branch: PRD environment
+    - template: ../../config-infra-prod.yml
+- ${{ if ne(variables['Build.SourceBranchName'], 'main') }}:  
+    # 'develop' or feature branches: DEV environment
+    - template: ../../config-infra-dev.yml
+- name: version
+  value: aml-cli-v2 
+- name: endpoint_name
+  value: taxi2-batch-$(namespace)$(postfix)$(environment)
+- name: endpoint_type
+  value: batch
+
+trigger:
+- none
+
+pool:
+  vmImage: ubuntu-20.04
+
+stages:
+- stage: CreateBatchEndpoint
+  displayName: Create/Update Batch Endpoint 
+  jobs:
+    - job: DeployBatchEndpoint
+      steps:
+
+      - template: ../../templates/${{ variables.version }}/install-az-cli.yml
+      - template: ../../templates/${{ variables.version }}/install-aml-cli.yml
+      - template: ../../templates/${{ variables.version }}/connect-to-workspace.yml
+      - template: ../../templates/${{ variables.version }}/create-compute.yml
+        parameters:
+          cluster_name: cpu-cluster # name must match cluster name in deployment file below
+          size: STANDARD_DS2_V2
+          min_instances: 0
+          max_instances: 4
+          cluster_tier: dedicated
+      - template: ../../templates/${{ variables.version }}/create-endpoint.yml
+        parameters: 
+          endpoint_file: mlops/azureml/deploy/batch/batch-endpoint.yml
+      - template: ../../templates/${{ variables.version }}/create-deployment.yml
+        parameters:
+          deployment_name: taxi-batch-dp
+          deployment_file: mlops/azureml/deploy/batch/batch-deployment.yml      
+      - template: ../../templates/${{ variables.version }}/test-deployment.yml
+        parameters:
+          deployment_name: taxi-batch-dp
+          sample_request: data/taxi-batch.csv
+          request_type: uri_file #either uri_folder or uri_file 
+
